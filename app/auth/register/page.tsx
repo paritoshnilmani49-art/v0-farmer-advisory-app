@@ -1,8 +1,6 @@
 "use client"
 
 import type React from "react"
-
-import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -36,7 +34,6 @@ export default function RegisterPage() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
-    const supabase = createClient()
     setIsLoading(true)
     setError(null)
 
@@ -53,44 +50,34 @@ export default function RegisterPage() {
     }
 
     try {
-      const { data, error } = await supabase.auth.signUp({
+      if (!formData.fullName || !formData.email || !formData.password) {
+        throw new Error("Please fill in all required fields")
+      }
+
+      // Simulate registration delay
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+
+      // Store user data in localStorage for demo
+      const userData = {
+        id: "demo-user-" + Date.now(),
         email: formData.email,
-        password: formData.password,
-        options: {
-          emailRedirectTo:
-            process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/auth/callback`,
-          data: {
-            full_name: formData.fullName,
-            phone_number: formData.phoneNumber,
-            location: formData.location,
-            farm_size: Number.parseFloat(formData.farmSize) || 0,
-            primary_crops: formData.primaryCrops
-              .split(",")
-              .map((crop) => crop.trim())
-              .filter((crop) => crop.length > 0),
-            language_preference: formData.languagePreference,
-          },
-        },
-      })
-
-      if (error) {
-        if (error.message.includes("already registered")) {
-          throw new Error("This email is already registered. Please try signing in instead.")
-        } else if (error.message.includes("Password")) {
-          throw new Error("Password must be at least 6 characters long and contain letters and numbers.")
-        } else {
-          throw error
-        }
+        name: formData.fullName,
+        location: formData.location,
+        farmSize: formData.farmSize,
+        primaryCrops: formData.primaryCrops
+          .split(",")
+          .map((crop) => crop.trim())
+          .filter((crop) => crop.length > 0),
+        phoneNumber: formData.phoneNumber,
+        languagePreference: formData.languagePreference,
       }
 
-      if (data.user && !data.session) {
-        setSuccess(true)
-        setTimeout(() => {
-          router.push("/auth/verify-email")
-        }, 2000)
-      } else if (data.session) {
+      localStorage.setItem("farmwise_user", JSON.stringify(userData))
+
+      setSuccess(true)
+      setTimeout(() => {
         router.push("/dashboard")
-      }
+      }, 2000)
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred during registration")
     } finally {
@@ -111,11 +98,9 @@ export default function RegisterPage() {
               </div>
               <h2 className="text-2xl font-bold text-green-800 mb-2">Registration Successful!</h2>
               <p className="text-green-600 mb-4">
-                We've sent a verification email to <strong>{formData.email}</strong>
+                Welcome to FarmWise, <strong>{formData.fullName}</strong>!
               </p>
-              <p className="text-sm text-green-600">
-                Please check your email and click the verification link to activate your account.
-              </p>
+              <p className="text-sm text-green-600">Redirecting you to your dashboard...</p>
             </div>
           </CardContent>
         </Card>
@@ -179,7 +164,7 @@ export default function RegisterPage() {
                       className="pl-10 border-green-200 focus:border-green-500 text-base"
                     />
                   </div>
-                  <p className="text-xs text-green-600">We'll send verification email here</p>
+                  <p className="text-xs text-green-600">Demo mode - any email works</p>
                 </div>
 
                 <div className="space-y-2">

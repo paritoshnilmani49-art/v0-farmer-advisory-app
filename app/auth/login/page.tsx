@@ -1,8 +1,6 @@
 "use client"
 
 import type React from "react"
-
-import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -22,30 +20,32 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    const supabase = createClient()
     setIsLoading(true)
     setError(null)
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-      if (error) {
-        if (error.message.includes("Invalid login credentials")) {
-          throw new Error("Email or password is incorrect. Please check and try again.")
-        } else if (error.message.includes("Email not confirmed")) {
-          throw new Error("Please check your email and click the verification link first.")
-        } else {
-          throw error
-        }
+      if (!email || !password) {
+        throw new Error("Please fill in all fields")
       }
 
-      if (data.user) {
-        router.push("/dashboard")
-        router.refresh()
+      if (password.length < 6) {
+        throw new Error("Password must be at least 6 characters")
       }
+
+      // Simulate login delay
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+
+      // Store simple auth state in localStorage for demo
+      localStorage.setItem(
+        "farmwise_user",
+        JSON.stringify({
+          email,
+          name: email.split("@")[0],
+          id: "demo-user-" + Date.now(),
+        }),
+      )
+
+      router.push("/dashboard")
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred")
     } finally {
@@ -140,7 +140,7 @@ export default function LoginPage() {
                   Create your account
                 </Link>
               </p>
-              <p className="text-xs text-green-500">Having trouble? Make sure you've verified your email address.</p>
+              <p className="text-xs text-green-500">Demo mode - use any email and password (6+ characters)</p>
             </div>
           </CardContent>
         </Card>
