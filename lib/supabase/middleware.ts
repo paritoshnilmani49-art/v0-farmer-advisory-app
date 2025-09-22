@@ -27,16 +27,33 @@ export async function updateSession(request: NextRequest) {
 
   const {
     data: { user },
+    error,
   } = await supabase.auth.getUser()
 
-  if (
-    request.nextUrl.pathname !== "/" &&
-    !user &&
-    !request.nextUrl.pathname.startsWith("/auth") &&
-    !request.nextUrl.pathname.startsWith("/api")
-  ) {
+  const isAuthPage = request.nextUrl.pathname.startsWith("/auth")
+  const isApiRoute = request.nextUrl.pathname.startsWith("/api")
+  const isPublicRoute =
+    request.nextUrl.pathname === "/" ||
+    request.nextUrl.pathname.startsWith("/_next") ||
+    request.nextUrl.pathname.includes(".")
+
+  // If there's an auth error and user is trying to access protected routes
+  if (error && !isAuthPage && !isApiRoute && !isPublicRoute) {
     const url = request.nextUrl.clone()
     url.pathname = "/auth/login"
+    return NextResponse.redirect(url)
+  }
+
+  // Redirect unauthenticated users to login (except for public routes)
+  if (!user && !isAuthPage && !isApiRoute && !isPublicRoute) {
+    const url = request.nextUrl.clone()
+    url.pathname = "/auth/login"
+    return NextResponse.redirect(url)
+  }
+
+  if (user && isAuthPage && !request.nextUrl.pathname.includes("verify-email")) {
+    const url = request.nextUrl.clone()
+    url.pathname = "/dashboard"
     return NextResponse.redirect(url)
   }
 

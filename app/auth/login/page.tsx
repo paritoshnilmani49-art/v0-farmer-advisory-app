@@ -10,13 +10,14 @@ import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { Sprout, Mail, Lock } from "lucide-react"
+import { Sprout, Mail, Lock, AlertCircle, Eye, EyeOff } from "lucide-react"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const router = useRouter()
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -26,12 +27,25 @@ export default function LoginPage() {
     setError(null)
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
-      if (error) throw error
-      router.push("/dashboard")
+
+      if (error) {
+        if (error.message.includes("Invalid login credentials")) {
+          throw new Error("Email or password is incorrect. Please check and try again.")
+        } else if (error.message.includes("Email not confirmed")) {
+          throw new Error("Please check your email and click the verification link first.")
+        } else {
+          throw error
+        }
+      }
+
+      if (data.user) {
+        router.push("/dashboard")
+        router.refresh()
+      }
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred")
     } finally {
@@ -49,7 +63,8 @@ export default function LoginPage() {
             </div>
           </div>
           <h1 className="text-3xl font-bold text-green-800 mb-2">FarmWise</h1>
-          <p className="text-green-600">Your Agricultural Advisory Partner</p>
+          <p className="text-green-600 text-lg">Your Agricultural Advisory Partner</p>
+          <p className="text-sm text-green-500 mt-2">Sign in to access your personalized farming dashboard</p>
         </div>
 
         <Card className="shadow-lg border-0">
@@ -58,9 +73,9 @@ export default function LoginPage() {
             <CardDescription className="text-green-600">Sign in to access your farming dashboard</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
+            <form onSubmit={handleLogin} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-green-700">
+                <Label htmlFor="email" className="text-green-700 font-medium">
                   Email Address
                 </Label>
                 <div className="relative">
@@ -68,48 +83,64 @@ export default function LoginPage() {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="farmer@example.com"
+                    placeholder="your.email@example.com"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10 border-green-200 focus:border-green-500"
+                    className="pl-10 border-green-200 focus:border-green-500 text-base"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-green-700">
+                <Label htmlFor="password" className="text-green-700 font-medium">
                   Password
                 </Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-green-500" />
                   <Input
                     id="password"
-                    type="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter your password"
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 border-green-200 focus:border-green-500"
+                    className="pl-10 pr-10 border-green-200 focus:border-green-500 text-base"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-3 text-green-500 hover:text-green-700"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
               </div>
 
               {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">{error}</div>
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  {error}
+                </div>
               )}
 
-              <Button type="submit" className="w-full bg-green-600 hover:bg-green-700 text-white" disabled={isLoading}>
-                {isLoading ? "Signing in..." : "Sign In"}
+              <Button
+                type="submit"
+                className="w-full bg-green-600 hover:bg-green-700 text-white text-base py-3"
+                disabled={isLoading}
+              >
+                {isLoading ? "Signing In..." : "Sign In to FarmWise"}
               </Button>
             </form>
 
-            <div className="mt-6 text-center">
+            <div className="mt-6 text-center space-y-2">
               <p className="text-sm text-green-600">
                 New to FarmWise?{" "}
                 <Link href="/auth/register" className="font-medium text-green-700 hover:text-green-800 underline">
                   Create your account
                 </Link>
               </p>
+              <p className="text-xs text-green-500">Having trouble? Make sure you've verified your email address.</p>
             </div>
           </CardContent>
         </Card>
