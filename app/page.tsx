@@ -4,8 +4,16 @@ import Link from "next/link"
 import { Sprout, Users, TrendingUp, Shield, MessageCircle, Smartphone, CheckCircle, Star } from "lucide-react"
 
 export default function HomePage() {
+  console.log("[v0] HomePage rendering")
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-amber-50">
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `console.log("[v0] HomePage DOM loaded");`,
+        }}
+      />
+
       {/* Header */}
       <header className="bg-white/90 backdrop-blur-sm border-b border-green-200 sticky top-0 z-50 shadow-sm">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
