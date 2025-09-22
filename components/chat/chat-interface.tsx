@@ -33,6 +33,7 @@ export function ChatInterface({ farmer, farmerId }: ChatInterfaceProps) {
     isLoading,
     input: chatInput,
     handleInputChange,
+    error: chatError,
   } = useChat({
     api: "/api/chat",
     body: { farmerId },
@@ -54,9 +55,15 @@ What would you like to know about your farm today?`,
     ],
     onError: (error) => {
       console.error("Chat error:", error)
-      setError("Sorry, I'm having trouble connecting. Please try again.")
+      setError("Sorry, I'm having trouble connecting. Please check your internet connection and try again.")
     },
   })
+
+  useEffect(() => {
+    if (chatError) {
+      setError(chatError.message || "An error occurred while chatting")
+    }
+  }, [chatError])
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -140,6 +147,10 @@ What would you like to know about your farm today?`,
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+    if (!chatInput.trim()) {
+      setError("Please enter a message before sending")
+      return
+    }
     handleSubmit(e)
   }
 
@@ -241,10 +252,10 @@ What would you like to know about your farm today?`,
             </ScrollArea>
 
             {/* Error Message */}
-            {error && (
+            {(error || chatError) && (
               <div className="mx-6 mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
                 <AlertCircle className="h-4 w-4 text-red-600" />
-                <span className="text-sm text-red-700">{error}</span>
+                <span className="text-sm text-red-700">{error || chatError?.message}</span>
               </div>
             )}
 

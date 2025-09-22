@@ -57,26 +57,42 @@ export default function RegisterPage() {
         email: formData.email,
         password: formData.password,
         options: {
-          emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/dashboard`,
+          emailRedirectTo:
+            process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/auth/callback`,
           data: {
             full_name: formData.fullName,
             phone_number: formData.phoneNumber,
             location: formData.location,
             farm_size: Number.parseFloat(formData.farmSize) || 0,
-            primary_crops: formData.primaryCrops.split(",").map((crop) => crop.trim()),
+            primary_crops: formData.primaryCrops
+              .split(",")
+              .map((crop) => crop.trim())
+              .filter((crop) => crop.length > 0),
             language_preference: formData.languagePreference,
           },
         },
       })
 
-      if (error) throw error
+      if (error) {
+        if (error.message.includes("already registered")) {
+          throw new Error("This email is already registered. Please try signing in instead.")
+        } else if (error.message.includes("Password")) {
+          throw new Error("Password must be at least 6 characters long and contain letters and numbers.")
+        } else {
+          throw error
+        }
+      }
 
-      setSuccess(true)
-      setTimeout(() => {
-        router.push("/auth/verify-email")
-      }, 2000)
+      if (data.user && !data.session) {
+        setSuccess(true)
+        setTimeout(() => {
+          router.push("/auth/verify-email")
+        }, 2000)
+      } else if (data.session) {
+        router.push("/dashboard")
+      }
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred")
+      setError(error instanceof Error ? error.message : "An error occurred during registration")
     } finally {
       setIsLoading(false)
     }

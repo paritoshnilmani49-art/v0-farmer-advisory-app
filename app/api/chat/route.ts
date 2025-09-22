@@ -112,13 +112,22 @@ export async function POST(req: Request) {
   try {
     const { messages, farmerId }: { messages: UIMessage[]; farmerId?: string } = await req.json()
 
+    if (!messages || !Array.isArray(messages)) {
+      throw new Error("Invalid messages format")
+    }
+
     // Get farmer context for personalized advice
     const supabase = await createClient()
     let farmer = null
 
     if (farmerId) {
-      const { data } = await supabase.from("farmers").select("*").eq("id", farmerId).single()
-      farmer = data
+      try {
+        const { data } = await supabase.from("farmers").select("*").eq("id", farmerId).single()
+        farmer = data
+      } catch (dbError) {
+        console.error("Error fetching farmer data:", dbError)
+        // Continue without farmer data rather than failing
+      }
     }
 
     const systemPrompt = `You are FarmWise AI, a friendly and knowledgeable agricultural advisor helping farmers grow better crops and increase their yields. You speak in simple, clear language that farmers can easily understand.
@@ -158,7 +167,8 @@ Remember: You're helping hardworking farmers feed their families and communities
     const prompt = convertToModelMessages([{ role: "system", content: systemPrompt }, ...messages])
 
     if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-      throw new Error("GOOGLE_GENERATIVE_AI_API_KEY environment variable is not set")
+      console.error("GOOGLE_GENERATIVE_AI_API_KEY is not configured")
+      throw new Error("AI service is not properly configured. Please contact support.")
     }
 
     const result = streamText({
@@ -170,28 +180,35 @@ Remember: You're helping hardworking farmers feed their families and communities
       abortSignal: req.signal,
     })
 
-    // Save chat history to database
     if (farmerId) {
       try {
         const lastMessage = messages[messages.length - 1]
         if (lastMessage && lastMessage.role === "user") {
-          result.then(async (response) => {
-            try {
-              const fullText = await response.text
-              await supabase.from("chat_history").insert({
-                farmer_id: farmerId,
-                message: lastMessage.content as string,
-                response: fullText,
-                language: farmer?.language_preference || "english",
-                message_type: "chat",
-              })
-            } catch (dbError) {
-              console.error("Error saving chat history:", dbError)
-            }
-          })
+          // Don't await this to avoid blocking the response
+          result
+            .then(async (response) => {
+              try {
+                const fullText = await response.text
+                await supabase.from("chat_history").insert({
+                  farmer_id: farmerId,
+                  message: lastMessage.content as string,
+                  response: fullText,
+                  language: farmer?.language_preference || "english",
+                  message_type: "chat",
+                  created_at: new Date().toISOString(),
+                })
+              } catch (dbError) {
+                console.error("Error saving chat history:", dbError)
+                // Don't throw here as it would break the chat response
+              }
+            })
+            .catch((error) => {
+              console.error("Error processing chat response:", error)
+            })
         }
       } catch (error) {
-        console.error("Error processing chat history:", error)
+        console.error("Error setting up chat history save:", error)
+        // Continue without saving history
       }
     }
 
@@ -200,7 +217,7 @@ Remember: You're helping hardworking farmers feed their families and communities
     console.error("Chat API Error:", error)
     return new Response(
       JSON.stringify({
-        error: error instanceof Error ? error.message : "An error occurred processing your request",
+        error: error instanceof Error ? error.message : "An error occurred processing your request. Please try again.",
       }),
       {
         status: 500,
